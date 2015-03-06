@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using Iesi.Collections.Generic;
 using NHibernate.Collection;
 using NHibernate.Engine;
 using NHibernate.Persister.Collection;
@@ -17,11 +16,11 @@ namespace NHibernate.CollectionQuery
 
         public IPersistentCollection Wrap(ISessionImplementor session, object collection)
         {
-            var set = collection as Iesi.Collections.Generic.ISet<T>;
+            var set = collection as ISet<T>;
             
             if (set == null)
             {
-                set = new HashedSet<T>((ICollection<T>)collection);
+                set = new HashSet<T>((ICollection<T>)collection);
             }
 
             return new PersistentQueryableSet<T>(session, set);
@@ -57,7 +56,7 @@ namespace NHibernate.CollectionQuery
 
         public object Instantiate(int anticipatedSize)
         {
-            return new HashedSet<T>();
+            return new HashSet<T>();
         }
     }
 }
