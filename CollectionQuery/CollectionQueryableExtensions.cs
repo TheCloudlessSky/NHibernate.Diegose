@@ -89,12 +89,10 @@ namespace NHibernate.CollectionQuery
             var selectorType = typeof(Expression<>).MakeGenericType(
                 GetCollectionSelectorType(ownerType, itemType)
             );
-
             var body = Expression.Call(null, selectManyMethod,
                 Expression.Convert(ownerQueryableParameter, typeof(IQueryable<>).MakeGenericType(ownerType)),
                 Expression.Convert(collectionSelectorParameter, selectorType)
             );
-
             return Expression.Lambda<SelectManyFunc>(body, ownerQueryableParameter, collectionSelectorParameter)
                 .Compile();
         }
@@ -109,18 +107,23 @@ namespace NHibernate.CollectionQuery
                 session = sessionGetter(persistentCollection);
 
             var ownerProxy = persistentCollection.Owner as INHibernateProxy;
-            var ownerType = ownerProxy == null
-                                ? persistentCollection.Owner.GetType()
-                                : ownerProxy.HibernateLazyInitializer.PersistentClass;
+            var ownerType = ownerProxy == null 
+                            ? persistentCollection.Owner.GetType()
+                            : ownerProxy.HibernateLazyInitializer.PersistentClass;
             var ownerParameter = Expression.Parameter(ownerType);
             var collectionPropertyName = persistentCollection.Role.Split('.').Last();
-            dynamic predicate = Expression.Lambda(Expression.Equal(ownerParameter,
-                                                                   Expression.Constant(persistentCollection.Owner,
-                                                                                       ownerType)),
-                                                  ownerParameter);
-            var collectionSelector = Expression.Lambda(GetCollectionSelectorType(ownerType, typeof(T)),
-                                                           Expression.Property(ownerParameter, collectionPropertyName),
-                                                           ownerParameter);
+            dynamic predicate = Expression.Lambda(
+                Expression.Equal(ownerParameter,
+                    Expression.Constant(persistentCollection.Owner,
+                    ownerType)
+                ),
+                ownerParameter
+            );
+            var collectionSelector = Expression.Lambda(
+                GetCollectionSelectorType(ownerType, typeof(T)),
+                Expression.Property(ownerParameter, collectionPropertyName),
+                ownerParameter
+            );
             var sessionType = session is ISession ? typeof(ISession) : typeof(IStatelessSession);
             var queryableGetter = sessionQueryableGetters.GetOrAdd(Tuple.Create(sessionType, ownerType), CreateSessionQueryableGetter);
             dynamic ownerQueryable = queryableGetter(session);
