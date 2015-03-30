@@ -18,9 +18,9 @@ namespace NHibernate.CollectionQuery
         private delegate object SessionQueryableFunc(object session);
         private delegate object SelectManyFunc(object ownerQueryable, object collectionSelection);
 
-        private static Func<IPersistentCollection, ISessionImplementor> sessionGetter;
-        private static ConcurrentDictionary<Tuple<Type, Type>, SessionQueryableFunc> sessionQueryableGetters;
-        private static ConcurrentDictionary<Tuple<Type, Type>, SelectManyFunc> selectManyGetters;
+        private static readonly Func<IPersistentCollection, ISessionImplementor> sessionGetter;
+        private static readonly ConcurrentDictionary<Tuple<Type, Type>, SessionQueryableFunc> sessionQueryableGetters;
+        private static readonly ConcurrentDictionary<Tuple<Type, Type>, SelectManyFunc> selectManyGetters;
 
         static CollectionQueryableExtensions()
         {
@@ -110,13 +110,15 @@ namespace NHibernate.CollectionQuery
                 session = sessionGetter(persistentCollection);
             }
 
-            var sessionType = session is ISession ? typeof(ISession) : typeof(IStatelessSession);
+            var sessionType = GetSessionType(session);
             var ownerProxy = persistentCollection.Owner as INHibernateProxy;
-            var ownerType = ownerProxy == null 
-                            ? persistentCollection.Owner.GetType()
-                            : ownerProxy.HibernateLazyInitializer.PersistentClass;
+            var ownerType = GetOwnerType(ownerProxy, persistentCollection);
             var ownerParameter = Expression.Parameter(ownerType);
             var collectionPropertyName = persistentCollection.Role.Split('.').Last();
+
+            // Setup the iniqial IQueryable<T>.
+            var queryableGetter = sessionQueryableGetters.GetOrAdd(Tuple.Create(sessionType, ownerType), CreateSessionQueryableGetter);
+            dynamic ownerQueryable = queryableGetter(session);
 
             // Build the "x => x == collection.Owner" to ensure only the collection's
             // owner is selected.
@@ -133,13 +135,37 @@ namespace NHibernate.CollectionQuery
                 Expression.Property(ownerParameter, collectionPropertyName),
                 ownerParameter
             );
-            var queryableGetter = sessionQueryableGetters.GetOrAdd(Tuple.Create(sessionType, ownerType), CreateSessionQueryableGetter);
-            dynamic ownerQueryable = queryableGetter(session);
-            var ownerQuery = Queryable.Where(ownerQueryable, predicate);
 
+            // Build the final query:
+            //   Query<TOwner>().Where(x => x == owner).SelectMany(x => x.Collection);
+            var ownerQuery = Queryable.Where(ownerQueryable, predicate);
             var selectMany = selectManyGetters.GetOrAdd(Tuple.Create(ownerType, typeof(T)), CreateSelectManyGetter);
             var elementsQuery = selectMany(ownerQuery, collectionSelector);
             return (IQueryable<T>)elementsQuery;
+        }
+
+        private static Type GetSessionType(ISessionImplementor session)
+        {
+            if (session is ISession)
+            {
+                return typeof(ISession);
+            }
+            else
+            {
+                return typeof(IStatelessSession);
+            }
+        }
+
+        private static Type GetOwnerType(INHibernateProxy ownerProxy, IPersistentCollection persistentCollection)
+        {
+            if (ownerProxy == null)
+            {
+                return persistentCollection.Owner.GetType();
+            }
+            else
+            {
+                return ownerProxy.HibernateLazyInitializer.PersistentClass;
+            }
         }
 
         private static Type GetCollectionSelectorType(Type ownerType, Type itemType)
