@@ -101,10 +101,14 @@ namespace NHibernate.CollectionQuery
         {
             var persistentCollection = source as IPersistentCollection;
             if (persistentCollection == null || persistentCollection.WasInitialized)
+            {
                 return source.AsQueryable();
+            }
 
             if (session == null)
+            {
                 session = sessionGetter(persistentCollection);
+            }
 
             var ownerProxy = persistentCollection.Owner as INHibernateProxy;
             var ownerType = ownerProxy == null 
