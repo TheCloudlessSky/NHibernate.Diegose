@@ -132,17 +132,16 @@ namespace NHibernate.CollectionQuery.Test
         }
 
         [Test]
-        public void UsingQueryExtensionMethod()
+        public void UsingAsQueryableExtensionMethod()
         {
             using (var session = sessionFactory.OpenSession())
             {
                 var foo = session.Get<Foo>(id);
-                var bar = foo.Bars.Query().SingleOrDefault(b => b.Data == 2);
+                var bar = foo.Bars.AsQueryable().SingleOrDefault(b => b.Data == 2);
                 Assert.AreEqual(2, bar.Data, "invalid element retrieved");
             }
         }
 
-        // In order to duplicate #1 - run this test by itself.
         [Test]
         public void PreventSelectingWrongSelectManyQueryableMethod()
         {
