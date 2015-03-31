@@ -8,6 +8,7 @@ using NHibernate.Collection;
 using NHibernate.Engine;
 using NHibernate.Proxy;
 using NHibernate.Persister.Collection;
+using System.Collections;
 
 namespace NHibernate.CollectionQuery
 {
@@ -16,41 +17,39 @@ namespace NHibernate.CollectionQuery
     using SessionTypeAndOwnerType = System.Tuple<System.Type, System.Type>;
     using OwnerTypeAndElementType = System.Tuple<System.Type, System.Type>;
     
-    internal static class CollectionQueryableExtensions
+    internal static class CollectionQueryable
     {
-        private static readonly IInternalLogger log = LoggerProvider.LoggerFor(typeof(CollectionQueryableExtensions));
+        private static readonly IInternalLogger log = LoggerProvider.LoggerFor(typeof(CollectionQueryable));
 
         private delegate IQueryable SessionQueryGetter(object session);
         private delegate IQueryable SelectMany(IQueryable ownerQueryable, Expression collectionSelection);
-        private delegate ISessionImplementor SessionGetter(IPersistentCollection persistentCollection);
         private delegate IQueryable QueryFactory(IPersistentCollection persistentCollection, ISessionImplementor session);
 
         private static readonly MethodInfo createQueryFactoryMethod;
-        private static readonly SessionGetter sessionGetter;
         private static readonly ConcurrentDictionary<SessionTypeAndOwnerType, SessionQueryGetter> sessionQueryGetterCache;
         private static readonly ConcurrentDictionary<OwnerTypeAndElementType, SelectMany> selectManyCache;
         private static readonly ConcurrentDictionary<string, QueryFactory> roleQueryFactoryCache;
 
-        static CollectionQueryableExtensions()
+        static CollectionQueryable()
         {
-            createQueryFactoryMethod = typeof(CollectionQueryableExtensions).GetMethod("CreateQueryFactory", BindingFlags.NonPublic | BindingFlags.Static);
-            sessionGetter = CreateSessionGetter();
+            createQueryFactoryMethod = typeof(CollectionQueryable).GetMethod("CreateQueryFactory", BindingFlags.NonPublic | BindingFlags.Static);
             sessionQueryGetterCache = new ConcurrentDictionary<SessionTypeAndOwnerType, SessionQueryGetter>();
             selectManyCache = new ConcurrentDictionary<OwnerTypeAndElementType, SelectMany>();
             roleQueryFactoryCache = new ConcurrentDictionary<string, QueryFactory>();
         }
 
-        public static IQueryable<T> Query<T>(this ICollection<T> source, ISessionImplementor session = null)
+        public static void ClearCache()
         {
-            var persistentCollection = source as IPersistentCollection;
-            if (persistentCollection == null || persistentCollection.WasInitialized)
-            {
-                return source.AsQueryable();
-            }
+            sessionQueryGetterCache.Clear();
+            selectManyCache.Clear();
+            roleQueryFactoryCache.Clear();
+        }
 
-            if (session == null)
+        public static IQueryable<T> Query<T>(IPersistentCollection persistentCollection, ICollection<T> internalCollection, ISessionImplementor session)
+        {
+            if (persistentCollection.WasInitialized)
             {
-                session = sessionGetter(persistentCollection);
+                return internalCollection.AsQueryable();
             }
 
             // Capture *outside* the closure so that a reference to the
@@ -78,6 +77,7 @@ namespace NHibernate.CollectionQuery
             {
                 log.InfoFormat("Simple One-to-Many Querable factory created for \"{0}\" collection.", collectionRole);
 
+                // Simple One-to-Many queries allow fetching child properties.
                 return (persistentCollection, session) =>
                     CreateSimpleOneToManyQuery<TOwner, TElement>(persistentCollection, session, oneToManyKeyPropertyName);
             }
@@ -96,10 +96,10 @@ namespace NHibernate.CollectionQuery
 
             var collectionMetadata = sessionFactory.GetCollectionMetadata(collectionRole) as AbstractCollectionPersister;
 
-            // Ignore custom "where" because we build a specific expression tree and
-            // need to let the lower-layers of NHibernate handle it. If you're going
-            // this route, you probably shouldn't be using queryable collections.
-            if (collectionMetadata == null || !collectionMetadata.IsOneToMany || collectionMetadata.HasWhere)
+            // Ignore custom "where" or "order" because we build a specific expression 
+            // tree and need to let the lower-layers of NHibernate handle it. If you're
+            // going this route, you probably shouldn't be using queryable collections.
+            if (collectionMetadata == null || !collectionMetadata.IsOneToMany || collectionMetadata.HasWhere || collectionMetadata.HasOrdering)
             {
                 return false;
             }
@@ -191,22 +191,6 @@ namespace NHibernate.CollectionQuery
             var selectMany = selectManyCache.GetOrAdd(new OwnerTypeAndElementType(ownerType, elementType), CreateSelectMany);
             var elementsQuery = selectMany(ownerQuery, collectionSelector);
             return elementsQuery;
-        }
-
-        private static SessionGetter CreateSessionGetter()
-        {
-            var sessionProperty = typeof(AbstractPersistentCollection)
-                .GetProperty("Session", BindingFlags.Instance | BindingFlags.NonPublic);
-
-            var collectionParameter = Expression.Parameter(typeof(IPersistentCollection));
-
-            var body = Expression.Property(
-                Expression.Convert(collectionParameter, typeof(AbstractPersistentCollection)),
-                sessionProperty
-            );
-
-            return Expression.Lambda<SessionGetter>(body, collectionParameter)
-                .Compile();
         }
 
         private static SessionQueryGetter CreateSessionQueryGetter(SessionTypeAndOwnerType types)

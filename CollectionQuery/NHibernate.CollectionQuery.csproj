@@ -46,7 +46,7 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="CollectionQueryableExtensions.cs" />
+    <Compile Include="CollectionQueryable.cs" />
     <Compile Include="PersistentQueryableIdBag.cs" />
     <Compile Include="PersistentQueryableIdBagType.cs" />
     <Compile Include="PersistentQueryableBag.cs" />

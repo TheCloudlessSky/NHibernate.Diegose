@@ -42,7 +42,12 @@ namespace NHibernate.CollectionQuery
 
         IQueryable GetQueryable()
         {
-            return queryable ?? (queryable = WasInitialized ? WrappedSet.AsQueryable() : this.Query(Session));
+            if (queryable == null)
+            {
+                queryable = CollectionQueryable.Query<T>(this, WrappedSet, Session);
+            }
+
+            return queryable;
         }
     }
 }

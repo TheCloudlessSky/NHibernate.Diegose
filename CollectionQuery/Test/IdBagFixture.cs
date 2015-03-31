@@ -11,16 +11,14 @@ namespace NHibernate.CollectionQuery.Test
             return new List<Bar>();
         }
 
-        protected override void CustomizeMapping(ConventionModelMapper mapper)
+        protected override void CustomizeFooMapper(IClassMapper<Foo> mapper)
         {
-            mapper.Class<Foo>(cm => cm.IdBag(x => x.Bars,
-                                             bpm =>
-                                             {
-                                                 bpm.Cascade(Cascade.All);
-                                                 bpm.Type<PersistentQueryableIdBagType<Bar>>();
-                                             },
-                                             cer => cer.ManyToMany()));
-        }
- 
+            mapper.IdBag(x => x.Bars, bpm =>
+            {
+                bpm.Cascade(Cascade.All);
+                bpm.Type<PersistentQueryableIdBagType<Bar>>();
+            },
+            cer => cer.ManyToMany());
+        } 
     }
 }

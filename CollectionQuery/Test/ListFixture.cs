@@ -11,13 +11,31 @@ namespace NHibernate.CollectionQuery.Test
             return new List<Bar>();
         }
 
-        protected override void CustomizeMapping(ConventionModelMapper mapper)
+        protected override void CustomizeFooMapper(IClassMapper<Foo> mapper)
         {
-            mapper.Class<Foo>(cm => cm.List(x => x.Bars, bpm =>
-                                                         {
-                                                             bpm.Cascade(Cascade.All);
-                                                             bpm.Type<PersistentQueryableListType<Bar>>();
-                                                         }));
+            mapper.List(x => x.Bars, bpm =>
+            {
+                bpm.Cascade(Cascade.All);
+                bpm.Type<PersistentQueryableListType<Bar>>();
+            },
+            cer => cer.ManyToMany());
+        }
+    }
+
+    public class ListOneToManyFixture : QueryableCollectionSimpleOneToManyFixture
+    {
+        protected override ICollection<Bar> CreateCollection()
+        {
+            return new List<Bar>();
+        }
+
+        protected override void CustomizeFooMapper(IClassMapper<Foo> mapper)
+        {
+            mapper.List(x => x.Bars, bpm =>
+            {
+                bpm.Cascade(Cascade.All);
+                bpm.Type<PersistentQueryableListType<Bar>>();
+            }, cer => cer.OneToMany());
         }
     }
 }

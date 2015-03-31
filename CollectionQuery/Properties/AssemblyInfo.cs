@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security;
 
@@ -14,3 +15,5 @@ using System.Security;
 [assembly: AssemblyFileVersion("1.0.0.1")]
 [assembly: AllowPartiallyTrustedCallers]
 [assembly: ComVisible(false)]
+
+[assembly: InternalsVisibleTo("NHibernate.CollectionQuery.Test")]
