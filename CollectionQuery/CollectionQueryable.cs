@@ -7,11 +7,12 @@ using System.Reflection;
 using NHibernate.Collection;
 using NHibernate.Engine;
 using NHibernate.Proxy;
-using NHibernate.Persister.Collection;
 using System.Collections;
 
 namespace NHibernate.CollectionQuery
 {
+    using AbstractCollectionPersister = NHibernate.Persister.Collection.AbstractCollectionPersister;
+    using ILoadable = NHibernate.Persister.Entity.ILoadable;
     using Tuple = System.Tuple;
     using Type = System.Type;
     using SessionTypeAndOwnerType = System.Tuple<System.Type, System.Type>;
@@ -104,27 +105,35 @@ namespace NHibernate.CollectionQuery
                 return false;
             }
 
-            // Although it's called "KeyColumnNames", they actually represent
-            // the name of the properties (or fields) that are eventually mapped to
-            // columns.
-            var keyColumnNames = collectionMetadata.KeyColumnNames;
+            var collectionKeyColumnNames = collectionMetadata.KeyColumnNames;
 
-            if (keyColumnNames == null || keyColumnNames.Length != 1)
+            if (collectionKeyColumnNames == null || collectionKeyColumnNames.Length != 1)
             {
                 return false;
             }
 
-            // If the element doesn't have a reference to the parent, there's no
-            // easy way to make a LINQ query with the required field.
-            var elementHasReferenceToParent = !collectionMetadata.ElementPersister.PropertyNames.Contains(keyColumnNames[0]);
-            if (elementHasReferenceToParent)
+            var collectionKeyColumnName = collectionKeyColumnNames[0];
+
+            var entityMetadataLoadable = sessionFactory.GetClassMetadata(collectionMetadata.ElementPersister.EntityName) as ILoadable;
+
+            if (entityMetadataLoadable == null)
             {
                 return false;
             }
-            
-            keyPropertyName = keyColumnNames[0];
 
-            return true;
+            // Find the matching property for the collection's key column.
+            for (int i = 0; i < entityMetadataLoadable.PropertyNames.Length; i++)
+            {
+                var propertyColumnNames = entityMetadataLoadable.GetPropertyColumnNames(i);
+                
+                if (propertyColumnNames.Length == 1 && propertyColumnNames[0] == collectionKeyColumnName)
+                {
+                    keyPropertyName = entityMetadataLoadable.PropertyNames[i];
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static IQueryable CreateSimpleOneToManyQuery<TOwner, TElement>(IPersistentCollection persistentCollection, ISessionImplementor session, string keyPropertyName)
@@ -134,6 +143,8 @@ namespace NHibernate.CollectionQuery
             var ownerType = typeof(TOwner);
 
             // The "x => x.Owner == owner" predicate.
+            // We have to query by property name instead of the column name because
+            // this builds an expression that will get executed by the lower levels.
             var predicate = (Expression<Func<TElement, bool>>)Expression.Lambda(
                 Expression.Equal(
                     Expression.PropertyOrField(elementParameter, keyPropertyName),   

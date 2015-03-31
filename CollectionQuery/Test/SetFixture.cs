@@ -34,6 +34,7 @@ namespace NHibernate.CollectionQuery.Test
             mapper.Set(x => x.Bars, spm =>
             {
                 spm.Cascade(Cascade.All);
+                spm.Key(MapCollectionKeyColumn);
                 spm.Type<PersistentQueryableSetType<Bar>>();
             },
             cer => cer.OneToMany());

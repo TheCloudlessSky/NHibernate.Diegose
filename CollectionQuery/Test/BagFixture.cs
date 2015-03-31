@@ -34,6 +34,7 @@ namespace NHibernate.CollectionQuery.Test
             mapper.Bag(x => x.Bars, bpm =>
             {
                 bpm.Cascade(Cascade.All);
+                bpm.Key(MapCollectionKeyColumn);
                 bpm.Type<PersistentQueryableBagType<Bar>>();
             },
             cer => cer.OneToMany());

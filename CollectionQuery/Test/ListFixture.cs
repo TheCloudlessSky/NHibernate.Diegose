@@ -13,10 +13,10 @@ namespace NHibernate.CollectionQuery.Test
 
         protected override void CustomizeFooMapper(IClassMapper<Foo> mapper)
         {
-            mapper.List(x => x.Bars, bpm =>
+            mapper.List(x => x.Bars, lpm =>
             {
-                bpm.Cascade(Cascade.All);
-                bpm.Type<PersistentQueryableListType<Bar>>();
+                lpm.Cascade(Cascade.All);
+                lpm.Type<PersistentQueryableListType<Bar>>();
             },
             cer => cer.ManyToMany());
         }
@@ -31,10 +31,11 @@ namespace NHibernate.CollectionQuery.Test
 
         protected override void CustomizeFooMapper(IClassMapper<Foo> mapper)
         {
-            mapper.List(x => x.Bars, bpm =>
+            mapper.List(x => x.Bars, lpm =>
             {
-                bpm.Cascade(Cascade.All);
-                bpm.Type<PersistentQueryableListType<Bar>>();
+                lpm.Cascade(Cascade.All);
+                lpm.Key(MapCollectionKeyColumn);
+                lpm.Type<PersistentQueryableListType<Bar>>();
             }, cer => cer.OneToMany());
         }
     }

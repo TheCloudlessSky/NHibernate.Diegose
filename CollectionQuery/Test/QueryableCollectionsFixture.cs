@@ -224,6 +224,21 @@ namespace NHibernate.CollectionQuery.Test
 
         protected abstract override void CustomizeFooMapper(IClassMapper<Foo> mapper);
 
+        protected void MapCollectionKeyColumn(IKeyMapper<Foo> keyMapper)
+        {
+            keyMapper.Column("Parent_Foo_Id");
+        }
+
+        protected override void CustomizeBarMapper(IClassMapper<Bar> mapper)
+        {
+            mapper.ManyToOne(x => x.ParentFoo, mom =>
+            {
+                // Use a different column to ensure that the property name is mapped
+                // in the predicate.
+                mom.Column(cm => cm.Name("Parent_Foo_Id"));
+            });
+        }
+
         [Test]
         public override void BuildsTheCorrectExpression()
         {
@@ -246,16 +261,6 @@ namespace NHibernate.CollectionQuery.Test
                     .Expression;
                 Assert.AreEqual(expectedExpression.ToString(), actualExpression.ToString());
             }
-        }
-
-        protected override void CustomizeBarMapper(IClassMapper<Bar> mapper)
-        {
-            mapper.ManyToOne(x => x.ParentFoo, mom =>
-            {
-                // Use a different column to ensure that the property name is mapped
-                // in the predicate.
-                mom.Column("Parent_Foo_Id");
-            });
         }
     }
 }
